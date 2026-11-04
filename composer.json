@@ -2,9 +2,9 @@
 	"name": "akeeba/panopticon_connector_wp",
 	"type": "wordpress-plugin",
 	"description": "Akeeba Panopticon Connector — Joomla connector application for Akeeba Panopticon",
-	"homepage": "https://github.com/akeeba/panopticon-connector-wordpress",
+	"homepage": "https://github.com/getpanopticon/panopticon-connector-wordpress",
 	"support": {
-		"issues": "https://github.com/akeeba/panopticon-connector-wordpress/issues"
+		"issues": "https://github.com/getpanopticon/panopticon-connector-wordpress/issues"
 	},
 	"license": "AGPL-3.0-or-later",
 	"authors": [

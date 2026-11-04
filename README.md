@@ -1,6 +1,6 @@
 # Akeeba Panopticon Connector for WordPress
 
-Allows you to connect WordPress sites to [Akeeba Panopticon](https://github.com/akeeba/panopticon).
+Allows you to connect WordPress sites to [Akeeba Panopticon](https://github.com/getpanopticon/panopticon).
 
 > [!IMPORTANT]
 > You can only connect to WordPress sites using Akeeba Panopticon 1.2.0 and later versions.

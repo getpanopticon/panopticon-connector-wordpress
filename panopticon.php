@@ -7,7 +7,7 @@
 
 /*
 Plugin Name: Akeeba Panopticon Connector for WordPress
-Plugin URI: https://github.com/akeeba/panopticon_connector_wp
+Plugin URI: https://github.com/getpanopticon/panopticon-connector-wordpress
 Description: Use your WordPress site with Akeeba Panopticon
 Text Domain: panopticon
 Domain Path: /languages
@@ -20,7 +20,7 @@ Author: akeeba
 Author URI: http://www.akeeba.com
 License: AGPL-3.0+
 License URI: https://www.gnu.org/licenses/agpl-3.0.html
-GitHub Plugin URI: https://github.com/akeeba/panopticon_connector_wp
+GitHub Plugin URI: https://github.com/getpanopticon/panopticon-connector-wordpress
 Update URI: false
 */
 
@@ -49,7 +49,7 @@ class PanopticonPlugin
 	 * @var   string
 	 * @since 1.1.0
 	 */
-	private const UPDATE_URL = 'https://raw.githubusercontent.com/akeeba/panopticon-connector-wordpress/refs/heads/main/update.json';
+	private const UPDATE_URL = 'https://raw.githubusercontent.com/getpanopticon/panopticon-connector-wordpress/refs/heads/main/update.json';
 
 	/**
 	 * Update cache expiration time, in seconds. Default: 86400 (one day).

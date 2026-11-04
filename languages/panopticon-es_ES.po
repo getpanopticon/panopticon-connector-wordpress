@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: Akeeba Panopticon Connector for WordPress\n"
-"Report-Msgid-Bugs-To: https://github.com/akeeba/panopticon-connector-wordpress/issues\n"
+"Report-Msgid-Bugs-To: https://github.com/getpanopticon/panopticon-connector-wordpress/issues\n"
 "POT-Creation-Date: 2026-06-18 15:31+0300\n"
 "PO-Revision-Date: 2026-06-18 15:31+0300\n"
 "Last-Translator: OpenAI Codex\n"

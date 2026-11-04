@@ -1,10 +1,10 @@
 ## ℹ️ What is this?
 
-This is the connector plugin for [Akeeba Panopticon](https://github.com/akeeba/panopticon), our self-hosted site monitoring software. You need to install it on your WordPress site to be able to monitor it with Akeeba Panopticon.
+This is the connector plugin for [Akeeba Panopticon](https://github.com/getpanopticon/panopticon), our self-hosted site monitoring software. You need to install it on your WordPress site to be able to monitor it with Akeeba Panopticon.
 
-ℹ️ If you have a Joomla! 3 site please [look at the Joomla 3 connector's repository](https://github.com/akeeba/panopticon_connector_j3/releases/latest) instead.
+ℹ️ If you have a Joomla! 3 site please [look at the Joomla 3 connector's repository](https://github.com/getpanopticon/panopticon_connector_j3/releases/latest) instead.
 
-ℹ️ If you have a Joomla! 4 or later site please [look at the Joomla 4 or later connector's repository](https://github.com/akeeba/panopticon-connector/releases/latest) instead.
+ℹ️ If you have a Joomla! 4 or later site please [look at the Joomla 4 or later connector's repository](https://github.com/getpanopticon/panopticon-connector/releases/latest) instead.
 
 ## 🔎 Release highlights
 
@@ -46,8 +46,8 @@ Please note that using these rules will prevent [WP-CLI](https://wp-cli.org/) fr
 
 ## 📋 CHANGELOG
 
-* ✨ Core File Integrity Check support [akeeba/panopticon#979]
-* ✨ Custom base URL for the Core File Integrity checksums source [akeeba/panopticon#981]
+* ✨ Core File Integrity Check support [getpanopticon/panopticon#979]
+* ✨ Custom base URL for the Core File Integrity checksums source [getpanopticon/panopticon#981]
 * ✨ GNU GetText translation support and machine-translated language packs [#7]
 * 🐞 Only the first plugin or theme update in a batch was installed; the rest failed [#8]
 * 🐞 Akeeba Backup integration always received an empty secret word [#9]

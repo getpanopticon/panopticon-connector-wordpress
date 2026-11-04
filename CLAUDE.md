@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Akeeba Panopticon Connector for WordPress — a WordPress plugin that exposes REST API endpoints allowing remote management of WordPress sites through [Akeeba Panopticon](https://github.com/akeeba/panopticon). It handles core updates, plugin/theme management, and integrates with Akeeba Backup and Admin Tools Professional.
+Akeeba Panopticon Connector for WordPress — a WordPress plugin that exposes REST API endpoints allowing remote management of WordPress sites through [Akeeba Panopticon](https://github.com/getpanopticon/panopticon). It handles core updates, plugin/theme management, and integrates with Akeeba Backup and Admin Tools Professional.
 
 ## Build
 

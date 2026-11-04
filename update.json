@@ -4,18 +4,18 @@
 	"author": "<a href='https://akeeba.com'>Akeeba Ltd</a>",
 	"author_profile": "https://www.akeeba.com/our-team.html",
 	"version": "1.2.1",
-	"download_url": "https://github.com/akeeba/panopticon-connector-wordpress/releases/download/1.2.1/panopticon-1.2.1.zip",
+	"download_url": "https://github.com/getpanopticon/panopticon-connector-wordpress/releases/download/1.2.1/panopticon-1.2.1.zip",
 	"requires": "5.0",
 	"tested": "7.1",
 	"requires_php": "7.2",
 	"last_updated": "2026-10-26 08:51:27",
 	"sections": {
-		"description": "Allows you to connect WordPress sites to <a href=\"https://github.com/akeeba/panopticon\">Akeeba Panopticon</a>.",
+		"description": "Allows you to connect WordPress sites to <a href=\"https://github.com/getpanopticon/panopticon\">Akeeba Panopticon</a>.",
 		"installation": "Install the plugin and activate it. Then go to wp-admin, Tools, Panopticon to find the connection information you need to enter into Akeeba Panopticon.",
-		"changelog": "Please refer to <a href=\"https://github.com/akeeba/panopticon-connector-wordpress/releases\">the Release page on GitHub</a> for a detailed CHANGELOG."
+		"changelog": "Please refer to <a href=\"https://github.com/getpanopticon/panopticon-connector-wordpress/releases\">the Release page on GitHub</a> for a detailed CHANGELOG."
 	},
 	"banners": {
-		"low": "https://raw.githubusercontent.com/akeeba/panopticon-connector-wordpress/refs/heads/main/assets/wp_header_small.png",
-		"high": "https://raw.githubusercontent.com/akeeba/panopticon-connector-wordpress/refs/heads/main/assets/wp_header_big.png"
+		"low": "https://raw.githubusercontent.com/getpanopticon/panopticon-connector-wordpress/refs/heads/main/assets/wp_header_small.png",
+		"high": "https://raw.githubusercontent.com/getpanopticon/panopticon-connector-wordpress/refs/heads/main/assets/wp_header_big.png"
 	}
 }
