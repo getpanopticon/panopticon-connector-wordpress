@@ -10,7 +10,7 @@ The build system uses Apache Phing with shared build files from `../buildfiles/p
 
 ## Testing
 
-There is no automated test suite. Manual API testing is done with JetBrains HTTP Client files in `assets/*.http` (core, extensions, updates, admintools, backup). These require a `http-client.private.env.json` file (gitignored) with site URL and auth token.
+Unit tests live in `tests/` (PHPUnit). They load the real `WP_Filesystem_Direct` from a WordPress checkout, so run them with `WP_ROOT=/path/to/wordpress phpunit`. Everything else WordPress provides is stubbed in `tests/bootstrap.php`. Beyond that, there is no automated test suite. Manual API testing is done with JetBrains HTTP Client files in `assets/*.http` (core, extensions, updates, admintools, backup). These require a `http-client.private.env.json` file (gitignored) with site URL and auth token.
 
 ## Architecture
 

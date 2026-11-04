@@ -60,6 +60,8 @@
 			".idea",
 			"assets",
 			"build",
+			"tests",
+			"phpunit.xml.dist",
 			".gitignore",
 			".gitattributes",
 			"build.xml",

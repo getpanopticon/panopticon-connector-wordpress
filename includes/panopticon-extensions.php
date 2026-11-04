@@ -422,6 +422,19 @@ class Panopticon_Extensions extends \WP_REST_Controller
 			require_once ABSPATH . 'wp-admin/includes/class-wp-filesystem-direct.php';
 		}
 
+		// REST requests don't load the file API, and unzip_file() needs the global filesystem object.
+		if (!function_exists('unzip_file'))
+		{
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+		}
+
+		global $wp_filesystem;
+
+		if (!is_object($wp_filesystem))
+		{
+			WP_Filesystem();
+		}
+
 		$filesystem = new WP_Filesystem_Direct(null);
 		$temp_dir   = get_temp_dir() . 'panopticon_detect_' . wp_generate_password(8, false);
 
@@ -441,7 +454,7 @@ class Panopticon_Extensions extends \WP_REST_Controller
 			return 'unknown';
 		}
 
-		// Check for plugin files (*.php with plugin headers)
+		// Standard packages have a single top-level folder, but a package may also have its files at the root.
 		$files = $filesystem->dirlist($temp_dir, true, true);
 
 		$is_plugin = false;
@@ -449,31 +462,45 @@ class Panopticon_Extensions extends \WP_REST_Controller
 
 		if (is_array($files))
 		{
+			$locations = [[$temp_dir, $files]];
+
 			foreach ($files as $file)
 			{
-				if ($file['type'] === 'f' && substr($file['name'], -4) === '.php')
+				if ($file['type'] === 'd' && !empty($file['files']) && is_array($file['files']))
 				{
-					$file_path = $temp_dir . '/' . $file['name'];
-					$content   = $filesystem->get_contents($file_path);
+					$locations[] = [$temp_dir . '/' . $file['name'], $file['files']];
+				}
+			}
+
+			foreach ($locations as [$base_path, $entries])
+			{
+				foreach ($entries as $file)
+				{
+					if ($file['type'] !== 'f')
+					{
+						continue;
+					}
+
+					$file_path = $base_path . '/' . $file['name'];
 
 					// Check for plugin header
-					if (preg_match('/Plugin Name\s*:/i', $content))
+					if (substr($file['name'], -4) === '.php')
 					{
-						$is_plugin = true;
-						break;
+						if (preg_match('/Plugin Name\s*:/i', $filesystem->get_contents($file_path)))
+						{
+							$is_plugin = true;
+							break 2;
+						}
 					}
-				}
 
-				// Check for theme (style.css with theme headers)
-				if ($file['name'] === 'style.css')
-				{
-					$file_path = $temp_dir . '/' . $file['name'];
-					$content   = $filesystem->get_contents($file_path);
-
-					if (preg_match('/Theme Name\s*:/i', $content))
+					// Check for theme (style.css with theme headers)
+					if ($file['name'] === 'style.css')
 					{
-						$is_theme = true;
-						break;
+						if (preg_match('/Theme Name\s*:/i', $filesystem->get_contents($file_path)))
+						{
+							$is_theme = true;
+							break 2;
+						}
 					}
 				}
 			}

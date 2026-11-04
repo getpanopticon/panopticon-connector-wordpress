@@ -9,3 +9,6 @@
 
 ### phpStorm
 /.idea/laravel-idea.xml
+
+### PHPUnit
+/.phpunit.cache
