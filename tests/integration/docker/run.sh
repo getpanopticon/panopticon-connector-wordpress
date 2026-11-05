@@ -20,7 +20,7 @@
 #       --matrix           Run every WordPress:PHP pair of matrix.env, one full scrub-provision-test-teardown cycle
 #                          each. Not compatible with --keep-containers.
 #       --filter=PATTERN   Only run PHPUnit tests matching PATTERN
-#       --skip-build       Do not run `phing git`; install the newest package already in release/
+#       --skip-build       Do not run `phing git`; install the package the last build left in release/
 #       --package=ZIP      Install this Connector package instead of building one (implies --skip-build). Use it to
 #                          run the suite against an older release, e.g. to see a test fail before a fix.
 #       --keep-containers  Leave the stack running afterwards (re-run the tests against it in seconds)
@@ -352,7 +352,7 @@ HTACCESS
 
 build_connector() {
 	if [ "${SKIP_BUILD}" -eq 1 ]; then
-		warn "Skipping the build; using ${PACKAGE:-the newest package in release/}"
+		warn "Skipping the build; using ${PACKAGE:-the package in release/}"
 		return 0
 	fi
 	command -v phing >/dev/null 2>&1 || die "phing is not on PATH. Use --skip-build to reuse an existing package."
@@ -364,9 +364,15 @@ build_connector() {
 install_connector() {
 	local pkg="${PACKAGE}"
 
+	# Every build recreates release/ from scratch, so it holds the one package the last build made.
 	if [ -z "${pkg}" ]; then
-		pkg="$(ls -t "${RELEASE_DIR}"/panopticon-*.zip 2>/dev/null | head -1 || true)"
-		[ -n "${pkg}" ] || die "No panopticon-*.zip in ${RELEASE_DIR}. Build first (drop --skip-build)."
+		local -a pkgs=()
+		shopt -s nullglob
+		pkgs=("${RELEASE_DIR}"/panopticon-*.zip)
+		shopt -u nullglob
+		[ "${#pkgs[@]}" -gt 0 ] || die "No panopticon-*.zip in ${RELEASE_DIR}. Build first (drop --skip-build)."
+		[ "${#pkgs[@]}" -eq 1 ] || die "More than one panopticon-*.zip in ${RELEASE_DIR}; rebuild (drop --skip-build) or use --package."
+		pkg="${pkgs[0]}"
 	fi
 
 	log "Installing $(basename "${pkg}")"

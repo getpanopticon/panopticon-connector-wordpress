@@ -42,9 +42,8 @@ The site is at http://localhost:8230 while it is up (WordPress admin: `admin` / 
    `wp panopticon token get --porcelain`.
 7. Writes `config.php` (git-ignored) and runs PHPUnit with `phpunit-integration.xml`.
 
-`phing git` empties `release/` first, so a run deletes any package you kept there. It also rewrites the version in
-`panopticon.php` and `readme.txt`, and recompiles the `.mo` files, in the working tree; don't commit those changes. Use
-`--skip-build` to reuse the package already in `release/` and leave both alone.
+`phing git` rewrites the version in `panopticon.php` and `readme.txt`, and recompiles the `.mo` files, in the working
+tree; don't commit those changes. `--skip-build` reuses the package the last build left in `release/`.
 
 ## Options
 
@@ -54,7 +53,7 @@ The site is at http://localhost:8230 while it is up (WordPress admin: `admin` / 
 | `--php=VERSION`     | PHP to test, for one run. It must be in `../buildfiles/docker/e2e/versions`.                          |
 | `--matrix`          | Run every pair in `docker/matrix.env`, one full provision-test-teardown cycle each, then a summary.  |
 | `--filter=PATTERN`  | Passed to PHPUnit.                                                                                   |
-| `--skip-build`      | Don't run `phing git`; install the newest `release/panopticon-*.zip`.                                |
+| `--skip-build`      | Don't run `phing git`; install the package the last build left in `release/`.                        |
 | `--package=ZIP`     | Install this package instead (implies `--skip-build`). See "Seeing a test fail before a fix".        |
 | `--keep-containers` | Leave the stack up afterwards.                                                                       |
 | `--no-tests`        | Provision only; the stack stays up.                                                                  |
@@ -97,8 +96,10 @@ less than a green `--matrix`.
 * Use WP-CLI (`self::wp()`) only to set up fixtures and to read the site's state, never for the behaviour under test.
 * The site's PHP errors go to `docker/www/wp-content/e2e-php-errors.log`. `phpErrorLogPosition()` and `phpErrorsSince()`
   give you what a request logged; put it in assertion messages, since a fatal error's reply is an empty HTTP 500.
-* `fixtures/mu-plugins/e2e-fake-updates.php` offers plugin updates without an update server: write a package and an
-  entry in `wp-content/e2e-updates/updates.json` (see `PluginUpdateTest`).
+* Tests which update plugins or themes extend `AbstractUpdateTestCase`. It installs fixture extensions from
+  `fixtures/plugins` and `fixtures/themes` (`##VERSION##` in their files becomes the version installed), and
+  `offerUpdate()` builds the new version's package and offers it through `fixtures/mu-plugins/e2e-fake-updates.php`,
+  so no update server is needed. Whatever a test installs is removed after it, and the original theme reactivated.
 
 ## Seeing a test fail before a fix
 
@@ -110,8 +111,9 @@ mkdir -p /tmp/prefix/panopticon
 git archive 3665be8^ includes languages panopticon.php readme.txt | tar -x -C /tmp/prefix/panopticon
 cp -R vendor /tmp/prefix/panopticon/
 (cd /tmp/prefix && zip -qr panopticon-prefix.zip panopticon)
-tests/integration/docker/run.sh --package=/tmp/prefix/panopticon-prefix.zip --filter=PluginUpdate
+tests/integration/docker/run.sh --package=/tmp/prefix/panopticon-prefix.zip --filter='PluginUpdate|ThemeUpdate'
 ```
 
-`PluginUpdateTest` then fails for the plugin whose activation hook loads `upgrade.php`, with HTTP 500 and the
+`PluginUpdateTest` then fails for the plugin whose activation hook loads `upgrade.php`, and `ThemeUpdateTest` for the
+site with a plugin which loads `upgrade.php` after every update. Both get HTTP 500 and the
 `Cannot redeclare function show_message()` fatal error from the issue.
