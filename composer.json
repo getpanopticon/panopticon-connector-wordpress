@@ -52,6 +52,22 @@
 		"classmap": [
 		]
 	},
+	"scripts": {
+		"test": [
+			"@test:unit",
+			"@test:integration"
+		],
+		"test:unit": "tests/run-unit.sh",
+		"test:integration": [
+			"Composer\\Config::disableProcessTimeout",
+			"tests/integration/docker/run.sh"
+		]
+	},
+	"scripts-descriptions": {
+		"test": "Run the unit suite, then the Dockerized end-to-end suite",
+		"test:unit": "Run the in-process unit suite (phpunit, no Docker)",
+		"test:integration": "Provision a throwaway Dockerized WordPress site and run the end-to-end suite against it"
+	},
 	"extra": {
 		"instaler-name": "panopticon"
 	},
@@ -62,6 +78,7 @@
 			"build",
 			"tests",
 			"phpunit.xml.dist",
+			"phpunit-integration.xml",
 			".gitignore",
 			".gitattributes",
 			"build.xml",

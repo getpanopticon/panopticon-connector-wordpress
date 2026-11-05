@@ -1,0 +1,7 @@
+# Local settings, created from env.dist by run.sh
+.env
+# Backed up by run.sh --reset-env before recreating .env from env.dist
+.env.bak
+
+# The throwaway WordPress site (bind-mounted web root) is generated on every run.
+www/

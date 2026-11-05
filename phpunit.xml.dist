@@ -3,6 +3,10 @@
 	<testsuites>
 		<testsuite name="unit">
 			<directory>tests</directory>
+			<!-- The E2E suite has its own configuration, phpunit-integration.xml -->
+			<exclude>tests/integration</exclude>
+			<!-- The WordPress copy tests/run-unit.sh downloads -->
+			<exclude>tests/.wordpress</exclude>
 		</testsuite>
 	</testsuites>
 </phpunit>

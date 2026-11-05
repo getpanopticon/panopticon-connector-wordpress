@@ -56,6 +56,12 @@
             depends="new-release,composer-install,setup-properties,compile-translations,wp-package">
     </target>
 
+    <target name="test" description="Run the unit and end-to-end test suites (delegates to composer test)">
+        <exec executable="composer" dir="${phing.dir}" checkreturn="true" passthru="true">
+            <arg value="test"/>
+        </exec>
+    </target>
+
     <target name="compile-translations" description="Compile GNU GetText translations to MO files">
         <exec executable="sh" dir="${dirs.root}" returnProperty="gettext.msgfmt.return">
             <arg value="-c"/>

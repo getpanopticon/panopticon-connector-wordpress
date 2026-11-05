@@ -1,0 +1,68 @@
+#
+# @package   panopticon
+# @copyright Copyright (c)2023-2026 Nikolaos Dionysopoulos / Akeeba Ltd
+# @license   https://www.gnu.org/licenses/agpl-3.0.txt GNU Affero General Public License, version 3 or later
+#
+# The throwaway WordPress site for the Panopticon Connector E2E suite. Never run by hand: run.sh drives it.
+#
+# The php and web images are the shared akeeba-e2e/* images from ../buildfiles/docker/e2e (run.sh calls
+# images.sh ensure before bringing the stack up); they are never built or pulled here. The php image carries WP-CLI.
+# Everything project-specific is bind-mounted read-only.
+
+name: panopticon-wp-integration
+
+x-e2e-labels: &e2e-labels
+  org.akeeba.e2e: "1"
+
+services:
+  db:
+    image: "mysql:${MYSQL_VERSION:-8.4}"
+    labels: *e2e-labels
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD:-root}"
+      MYSQL_DATABASE: "${DB_NAME:-integration}"
+      MYSQL_USER: "${DB_USER:-integration}"
+      MYSQL_PASSWORD: "${DB_PASSWORD:-integration}"
+    ports:
+      - "127.0.0.1:${DB_PORT:-33323}:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      # Over TCP, not the socket: on a fresh volume the entrypoint first starts a temporary server without networking,
+      # which answers on the socket while port 3306 is still closed.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --protocol=TCP -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 30s
+
+  php:
+    image: "akeeba-e2e/php:${PHP_VERSION:-8.5}"
+    pull_policy: never
+    labels: *e2e-labels
+    volumes:
+      - ./www:/var/www/html
+      - ./config/php.ini:/usr/local/etc/php/conf.d/zz-integration.ini:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: "akeeba-e2e/web:${APACHE_VERSION:-2.4}"
+    pull_policy: never
+    labels: *e2e-labels
+    ports:
+      - "127.0.0.1:${HTTP_PORT:-8230}:80"
+    volumes:
+      - ./www:/var/www/html
+      - ./config/integration-vhost.conf:/usr/local/apache2/conf/extra/e2e-vhost.conf:ro
+    depends_on:
+      - php
+
+volumes:
+  dbdata:
+    labels: *e2e-labels
+
+networks:
+  default:
+    labels: *e2e-labels
