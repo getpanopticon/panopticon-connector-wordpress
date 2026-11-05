@@ -1,6 +1,9 @@
 Panopticon Connector for WordPress 1.2.2
 ================================================================================
 # [HIGH] Remote plugin/theme installation could fail with a fatal error or "unknown_type" when no other plugin had loaded the WordPress file API [#10]
+# [HIGH] Updating a plugin whose activation hook creates database tables failed and left it deactivated [#12]
+# [LOW] Plugin and theme update replies could have stray HTML before the JSON data [#12]
+# [LOW] Update replies did not say why a plugin could not be re-activated after updating it [#12]
 
 Panopticon Connector for WordPress 1.2.1
 ================================================================================

@@ -36,6 +36,57 @@ class WP_Error
 		$this->code    = $code;
 		$this->message = $message;
 	}
+
+	public function get_error_message()
+	{
+		return $this->message;
+	}
+}
+
+class WP_REST_Request implements ArrayAccess
+{
+	private $params;
+
+	public function __construct(array $params = [])
+	{
+		$this->params = $params;
+	}
+
+	public function offsetExists($offset): bool
+	{
+		return isset($this->params[$offset]);
+	}
+
+	#[\ReturnTypeWillChange]
+	public function offsetGet($offset)
+	{
+		return $this->params[$offset] ?? null;
+	}
+
+	public function offsetSet($offset, $value): void
+	{
+		$this->params[$offset] = $value;
+	}
+
+	public function offsetUnset($offset): void
+	{
+		unset($this->params[$offset]);
+	}
+}
+
+class WP_REST_Response
+{
+	private $data;
+
+	public function __construct($data = null, $status = 200)
+	{
+		$this->data = $data;
+	}
+
+	public function get_data()
+	{
+		return $this->data;
+	}
 }
 
 function __($text, $domain = 'default')
@@ -106,3 +157,4 @@ function unzip_file($file, $to)
 }
 
 require_once __DIR__ . '/../includes/panopticon-extensions.php';
+require_once __DIR__ . '/../includes/panopticon-updates.php';

@@ -79,27 +79,6 @@ class Panopticon_Updates extends WP_REST_Controller
 
 	public function updatePlugin(WP_REST_Request $request)
 	{
-		$brokenWPWorkaround = false;
-
-		if (!function_exists('show_message'))
-		{
-			function show_message($message)
-			{
-				global $_panopticon_upgrade_messages;
-
-				$_panopticon_upgrade_messages = ($_panopticon_upgrade_messages ?? '') . $message;
-			}
-		}
-		else
-		{
-			/**
-			 * WordPress' show_message function kills output buffering, then calls flush() for good measure, thus
-			 * ensuring that it is impossible to call it without breaking the heck out of the JSON API it itself
-			 * provides!
-			 */
-			$brokenWPWorkaround = true;
-		}
-
 		if (!function_exists('get_plugin_updates'))
 		{
 			require_once ABSPATH . 'wp-admin/includes/update.php';
@@ -120,10 +99,7 @@ class Panopticon_Updates extends WP_REST_Controller
 			require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
 		}
 
-		if (!class_exists(Plugin_Upgrader_Skin::class))
-		{
-			require_once ABSPATH . 'wp-admin/includes/class-plugin-upgrader-skin.php';
-		}
+		$this->loadUpgraderSkin();
 
 		$plugin  = $request['plugin'];
 		$plugins = get_plugins();
@@ -165,31 +141,37 @@ class Panopticon_Updates extends WP_REST_Controller
 		                      && is_plugin_active_for_network($plugin);
 
 		// Install the plugin update
+		$skin = new Automatic_Upgrader_Skin();
+
 		@ob_start();
-		$upgrader = new Plugin_Upgrader(
-			new Plugin_Upgrader_Skin(
-				[
-					'plugin' => $plugin,
-				]
-			)
-		);
+		$upgrader = new Plugin_Upgrader($skin);
 		$result   = $upgrader->upgrade($plugin);
 		@ob_end_clean();
-
-		if ($brokenWPWorkaround)
-		{
-			echo '###!#!--!-+=+-!--!#!###' . "\n";
-		}
 
 		if (is_wp_error($result))
 		{
 			return $result;
 		}
 
-		// Re-activate plugin
+		$messages = $skin->get_upgrade_messages();
+
+		/**
+		 * Re-activate the plugin.
+		 *
+		 * WordPress deactivates the plugin before updating it, unless running under WP-Cron. In wp-admin it is then
+		 * re-activated in a separate request. A failure here leaves the updated plugin deactivated, so report it.
+		 */
 		if ($isPluginActivated || $isNetworkActivated)
 		{
-			activate_plugin($plugin, '', $isNetworkActivated, false);
+			$activateResult = activate_plugin($plugin, '', $isNetworkActivated, false);
+
+			if (is_wp_error($activateResult))
+			{
+				$messages[] = sprintf(
+					__('The plugin was installed but activation failed: %s', 'panopticon'),
+					$activateResult->get_error_message()
+				);
+			}
 		}
 
 		/**
@@ -201,39 +183,16 @@ class Panopticon_Updates extends WP_REST_Controller
 		 */
 		wp_update_plugins();
 
-		global $_panopticon_upgrade_messages;
-
 		return new WP_REST_Response(
 			[
 				'status'   => true,
-				'messages' => $_panopticon_upgrade_messages,
+				'messages' => implode("\n", $messages),
 			]
 		);
 	}
 
 	public function updateTheme(WP_REST_Request $request)
 	{
-		$brokenWPWorkaround = false;
-
-		if (!function_exists('show_message'))
-		{
-			function show_message($message)
-			{
-				global $_panopticon_upgrade_messages;
-
-				$_panopticon_upgrade_messages = ($_panopticon_upgrade_messages ?? '') . $message;
-			}
-		}
-		else
-		{
-			/**
-			 * WordPress' show_message function kills output buffering, then calls flush() for good measure, thus
-			 * ensuring that it is impossible to call it without breaking the heck out of the JSON API it itself
-			 * provides!
-			 */
-			$brokenWPWorkaround = true;
-		}
-
 		if (!function_exists('get_theme_updates'))
 		{
 			require_once ABSPATH . 'wp-admin/includes/update.php';
@@ -255,10 +214,7 @@ class Panopticon_Updates extends WP_REST_Controller
 			require_once ABSPATH . 'wp-admin/includes/class-theme-upgrader.php';
 		}
 
-		if (!class_exists(Theme_Upgrader_Skin::class))
-		{
-			require_once ABSPATH . 'wp-admin/includes/class-theme-upgrader-skin.php';
-		}
+		$this->loadUpgraderSkin();
 
 		$theme  = $request['theme'];
 		$themes = wp_get_themes();
@@ -289,27 +245,20 @@ class Panopticon_Updates extends WP_REST_Controller
 			return new WP_Error('no_such_update', __('There is no such update.', 'panopticon'), ['status' => 409]);
 		}
 
-		// Install the plugin update
+		// Install the theme update
+		$skin = new Automatic_Upgrader_Skin();
+
 		@ob_start();
-		$upgrader = new Theme_Upgrader(
-			new Theme_Upgrader_Skin(
-				[
-					'theme' => $theme,
-				]
-			)
-		);
+		$upgrader = new Theme_Upgrader($skin);
 		$result   = $upgrader->upgrade($theme);
 		@ob_end_clean();
-
-		if ($brokenWPWorkaround)
-		{
-			echo '###!#!--!-+=+-!--!#!###' . "\n";
-		}
 
 		if (is_wp_error($result))
 		{
 			return $result;
 		}
+
+		$messages = $skin->get_upgrade_messages();
 
 		/**
 		 * Rebuild the update information WordPress just threw away.
@@ -320,12 +269,10 @@ class Panopticon_Updates extends WP_REST_Controller
 		 */
 		wp_update_themes();
 
-		global $_panopticon_upgrade_messages;
-
 		return new WP_REST_Response(
 			[
 				'status'   => true,
-				'messages' => $_panopticon_upgrade_messages,
+				'messages' => implode("\n", $messages),
 			]
 		);
 	}
@@ -353,6 +300,31 @@ class Panopticon_Updates extends WP_REST_Controller
 		}
 
 		return current_user_can('update_themes');
+	}
+
+	/**
+	 * Loads the upgrader skin used for plugin and theme updates.
+	 *
+	 * Automatic_Upgrader_Skin collects the upgrader's messages instead of printing them with show_message(). WordPress'
+	 * show_message() writes HTML, then flushes all output buffers, which breaks the JSON reply. Do NOT declare a
+	 * show_message() replacement either: wp-admin/includes/misc.php declares it unconditionally, and any code which
+	 * loads that file later in the request (e.g. a plugin's activation hook loading wp-admin/includes/upgrade.php to
+	 * use dbDelta) would die with a "Cannot redeclare function show_message()" fatal error. See GitHub issue #12.
+	 *
+	 * @return  void
+	 * @since   1.2.2
+	 */
+	private function loadUpgraderSkin()
+	{
+		if (!class_exists(WP_Upgrader_Skin::class))
+		{
+			require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader-skin.php';
+		}
+
+		if (!class_exists(Automatic_Upgrader_Skin::class))
+		{
+			require_once ABSPATH . 'wp-admin/includes/class-automatic-upgrader-skin.php';
+		}
 	}
 
 	protected function getPluginData($plugin)
