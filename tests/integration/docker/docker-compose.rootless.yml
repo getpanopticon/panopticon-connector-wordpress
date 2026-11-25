@@ -1,0 +1,10 @@
+# Added by run.sh, on top of docker-compose.yml, only when the Docker daemon is rootless.
+#
+# Rootless Docker maps the host user to root inside every container, so the shared PHP image's www-data IS root there (see
+# ../buildfiles/docker/e2e/images.sh): `docker compose exec -u www-data` runs as UID 0, which WP-CLI refuses unless told
+# otherwise. That root is only the host user, who owns the bind-mounted web root. Set on the container, so that it also
+# reaches the WP-CLI calls the PHPUnit suite makes.
+services:
+  php:
+    environment:
+      WP_CLI_ALLOW_ROOT: "1"

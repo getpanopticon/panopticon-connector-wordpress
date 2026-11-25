@@ -27,6 +27,8 @@
 #       --down             Tear everything down and exit
 #       --no-tests         Provision the site but run no tests (the stack stays up)
 #       --reset-env        Back up .env to .env.bak and recreate it from env.dist
+#       --host=HOST        Run everything on HOST over SSH, or "local" (default: see README.md "Remote host")
+#       --slot=N           With --down or a repeat run on a remote host: which kept slot
 #   -h, --help             Show this help
 #
 # Re-running the tests against a stack left up by --keep-containers or --no-tests:
@@ -48,8 +50,6 @@ BUILDFILES_DIR="${REPO_ROOT}/../buildfiles"
 E2E_IMAGES="${BUILDFILES_DIR}/docker/e2e/images.sh"
 GETCMS="${BUILDFILES_DIR}/getcms/getcms.php"
 
-cd "${SCRIPT_DIR}"
-
 # ---------------------------------------------------------------------------
 # Pretty logging
 # ---------------------------------------------------------------------------
@@ -58,6 +58,31 @@ log()  { printf "${C_B}==>${C_0} %s\n" "$*"; }
 ok()   { printf "${C_G}  ok${C_0} %s\n" "$*"; }
 warn() { printf "${C_Y}  !!${C_0} %s\n" "$*"; }
 die()  { printf "${C_R}ERROR:${C_0} %s\n" "$*" >&2; exit 1; }
+
+# ---------------------------------------------------------------------------
+# Local or remote host. In remote mode everything below runs on that host instead, and e2e_remote exits with its status;
+# see "Remote E2E hosts" in ../buildfiles/README.md. This comes before anything which needs Docker or sets a trap, and
+# before the change of directory, so that a relative --package still names the caller's file.
+# ---------------------------------------------------------------------------
+E2E_REMOTE_SH="${REPO_ROOT}/../buildfiles/docker/e2e/remote.sh"
+# A nested linked worktree has no ../buildfiles of its own: use the one next to the main repository.
+[ -f "${E2E_REMOTE_SH}" ] || E2E_REMOTE_SH="$(dirname "$(git -C "${REPO_ROOT}" rev-parse --path-format=absolute --git-common-dir)")/../buildfiles/docker/e2e/remote.sh"
+[ -f "${E2E_REMOTE_SH}" ] || die "buildfiles not found. Check out akeeba/buildfiles next to this repository."
+. "${E2E_REMOTE_SH}"
+
+E2E_HARNESS_DIR="${SCRIPT_DIR}"
+E2E_CONFIG_FILE="${SCRIPT_DIR}/.env"
+E2E_PORTS=(HTTP_PORT DB_PORT)
+# Left behind by a failed run only
+E2E_RESULTS=(tests/integration/docker/www/wp-content/e2e-php-errors.log)
+E2E_VERSION_FLAGS=("--wp|-w=" "--php|-p=" "--matrix")
+E2E_FILE_FLAGS=(--package)
+# PHPUnit runs on the host; msgfmt compiles the translations while building the package
+E2E_REQUIRE=(phpunit msgfmt)
+
+e2e_remote "${BASH_SOURCE[0]}" "$@"
+
+cd "${SCRIPT_DIR}"
 
 # ---------------------------------------------------------------------------
 # Tooling
@@ -72,6 +97,14 @@ fi
 command -v docker >/dev/null 2>&1 || die "Docker is not installed or not on PATH."
 command -v phpunit >/dev/null 2>&1 || die "phpunit is not on PATH. Install it globally (composer global require phpunit/phpunit) and put Composer's global bin directory on your PATH."
 command -v php >/dev/null 2>&1 || die "php is not on PATH."
+
+# With rootless Docker, WP-CLI runs as the container's root; see docker-compose.rootless.yml. COMPOSE_FILE applies to
+# every Compose call, so --down uses the same files as the run which brought the stack up.
+case "$(docker info --format '{{.SecurityOptions}}' 2>/dev/null || true)" in
+	*name=rootless*)
+		export COMPOSE_FILE="${SCRIPT_DIR}/docker-compose.yml:${SCRIPT_DIR}/docker-compose.rootless.yml"
+		;;
+esac
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -103,7 +136,9 @@ while [ $# -gt 0 ]; do
 		--keep-containers) KEEP_CONTAINERS=1; shift;;
 		--matrix)         MATRIX_MODE=1; shift;;
 		--reset-env)      RESET_ENV=1; shift;;
-		-h|--help)        sed -n '2,34p' "${SELF_PATH}" | sed 's/^# \{0,1\}//'; exit 0;;
+		--host|--slot)    shift 2;;   # read by e2e_remote above
+		--host=*|--slot=*) shift;;
+		-h|--help)        sed -n '2,36p' "${SELF_PATH}" | sed 's/^# \{0,1\}//'; exit 0;;
 		--)               shift; while [ $# -gt 0 ]; do PHPUNIT_ARGS+=("$1"); shift; done;;
 		*)                die "Unknown option: $1 (use --help)";;
 	esac
@@ -143,6 +178,8 @@ set -a
 . ./.env
 . ./matrix.env
 set +a
+# On a remote E2E host: this run's own ports, whatever .env says.
+e2e_apply_overrides
 [ -n "${WP_OVERRIDE}" ]  && export WP_VERSION="${WP_OVERRIDE}"
 [ -n "${PHP_OVERRIDE}" ] && export PHP_VERSION="${PHP_OVERRIDE}"
 

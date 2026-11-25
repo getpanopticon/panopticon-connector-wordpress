@@ -29,6 +29,20 @@ the web root (`docker/www`) is left in place for inspection; the next run scrubs
 
 The site is at http://localhost:8230 while it is up (WordPress admin: `admin` / `test`, see `docker/env.dist`).
 
+## Remote host
+
+The E2E suite can run on another machine over SSH instead: `tests/integration/docker/run.sh --host=HOST`,
+`E2E_DOCKER_HOST` (environment or `docker/.env`), or `e2e.docker.host` in your `build.properties`. `--host=local` forces
+this machine. `composer test` and `phing test` follow the same settings; the unit suite always runs on this machine.
+Every run on the host gets its own slot (staging tree, Compose project and ports), so any number can run at once, also
+from Git worktrees. A `--package` ZIP is sent along. If a run fails, the site's PHP error log comes back into
+`tests/integration/remote-results/`.
+
+The host needs PHPUnit and GNU gettext (`msgfmt`) besides the common requirements. The ports and site address below
+apply to local runs only; a kept remote stack prints its ports and the `ssh -L` command to reach it. Its
+`config.php` is on the host, so re-run tests against it there, or with `run.sh --skip-build --keep-containers` (which
+provisions it afresh). Details and host requirements: "Remote E2E hosts" in the sibling `buildfiles` repository's README.
+
 ## What `run.sh` does
 
 1. Scrubs any previous stack, volumes, web root and `config.php`.
@@ -59,6 +73,8 @@ tree; don't commit those changes. `--skip-build` reuses the package the last bui
 | `--no-tests`        | Provision only; the stack stays up.                                                                  |
 | `--down`            | Tear everything down and exit.                                                                       |
 | `--reset-env`       | Back up `docker/.env` to `.env.bak` and recreate it from `env.dist`.                                 |
+| `--host=HOST`       | Run everything on `HOST` over SSH, or `local`. See "Remote host".                                   |
+| `--slot=N`          | With `--down` or a repeat run on a remote host: which kept slot.                                     |
 | `-- ARGS`           | Everything after `--` is passed to PHPUnit.                                                          |
 
 `docker/.env` (git-ignored, created from `env.dist`) holds the ports, database and admin credentials. The versions under
