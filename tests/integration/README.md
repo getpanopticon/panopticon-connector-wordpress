@@ -10,8 +10,11 @@ throwaway WordPress site running in Docker. Nothing boots WordPress in-process. 
 * PHP and PHPUnit on the host, PHPUnit installed globally (`composer global require phpunit/phpunit`), with Composer's
   global `bin` directory on your `PATH`.
 * [akeeba/buildfiles](https://github.com/akeeba/buildfiles) checked out next to this repository (`../buildfiles`), with
-  `composer install` run there. It provides the Docker images (`docker/e2e/images.sh`), the WordPress downloader
-  (`getcms/`) and the Phing build.
+  `composer install` run there. It provides the Docker images (`docker/e2e/images.sh`), the WordPress download step
+  (`docker/e2e/wordpress/acquire.sh`, which uses `getcms/`) and the Phing build.
+* The [GitHub CLI](https://cli.github.com/), signed in (`gh auth login`), on the machine which runs the tests (the remote
+  host, for a remote run). Release lookups use it; without it they are anonymous, which GitHub limits to 60 an hour.
+* `unzip`.
 * Phing and GNU gettext (`msgfmt`) to build the Connector, unless you pass `--skip-build` or `--package`.
 
 ## Quick start
@@ -46,7 +49,9 @@ provisions it afresh). Details and host requirements: "Remote E2E hosts" in the 
 ## What `run.sh` does
 
 1. Scrubs any previous stack, volumes, web root and `config.php`.
-2. Downloads WordPress with buildfiles' `getcms` into `docker/www`, and checks it supports the PHP version under test.
+2. Gets WordPress with buildfiles' `docker/e2e/wordpress/acquire.sh`, unpacks it into `docker/www`, and checks it
+   supports the PHP version under test. The release is looked up first (the release list is cached for an hour);
+   `tests/integration/inbox/` only saves downloading its package again. An exact `X.Y.Z` version needs no lookup.
 3. Brings the stack up on the shared `akeeba-e2e/php` and `akeeba-e2e/web` images, plus MySQL. The php image carries
    WP-CLI, which runs as `www-data` so that the files it writes are owned like the rest of the web root.
 4. Installs WordPress with WP-CLI: pretty permalinks (the API lives under `/wp-json/`), no automatic updates, no

@@ -8,7 +8,8 @@
 #
 # What it does, in order:
 #   1. Scrub any previous stack, volumes and web root.
-#   2. Download WordPress with buildfiles' getcms, check it supports the PHP version under test.
+#   2. Get WordPress with buildfiles' docker/e2e/wordpress/acquire.sh, unpack it, and check it supports the PHP version
+#      under test.
 #   3. Bring up the stack; install WordPress with WP-CLI.
 #   4. Build the Connector with `phing git` (or take an existing package) and install and activate it.
 #   5. Install the test fixtures (mu-plugins) and read the Connector's API token.
@@ -45,10 +46,11 @@ INTEGRATION_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REPO_ROOT="$(cd "${INTEGRATION_DIR}/../.." && pwd)"
 RELEASE_DIR="${REPO_ROOT}/release"
 FIXTURES_DIR="${INTEGRATION_DIR}/fixtures"
+# Cache of WordPress packages. It saves downloading them again; it never decides which release is tested.
+INBOX_DIR="${INTEGRATION_DIR}/inbox"
 WWW_DIR="${SCRIPT_DIR}/www"
 BUILDFILES_DIR="${REPO_ROOT}/../buildfiles"
 E2E_IMAGES="${BUILDFILES_DIR}/docker/e2e/images.sh"
-GETCMS="${BUILDFILES_DIR}/getcms/getcms.php"
 
 # ---------------------------------------------------------------------------
 # Pretty logging
@@ -77,8 +79,8 @@ E2E_PORTS=(HTTP_PORT DB_PORT)
 E2E_RESULTS=(tests/integration/docker/www/wp-content/e2e-php-errors.log)
 E2E_VERSION_FLAGS=("--wp|-w=" "--php|-p=" "--matrix")
 E2E_FILE_FLAGS=(--package)
-# PHPUnit runs on the host; msgfmt compiles the translations while building the package
-E2E_REQUIRE=(phpunit msgfmt)
+# PHPUnit runs on the host; msgfmt compiles the translations while building the package; unzip unpacks WordPress
+E2E_REQUIRE=(phpunit msgfmt unzip)
 
 e2e_remote "${BASH_SOURCE[0]}" "$@"
 
@@ -97,6 +99,7 @@ fi
 command -v docker >/dev/null 2>&1 || die "Docker is not installed or not on PATH."
 command -v phpunit >/dev/null 2>&1 || die "phpunit is not on PATH. Install it globally (composer global require phpunit/phpunit) and put Composer's global bin directory on your PATH."
 command -v php >/dev/null 2>&1 || die "php is not on PATH."
+command -v unzip >/dev/null 2>&1 || die "unzip is not on PATH."
 
 # With rootless Docker, WP-CLI runs as the container's root; see docker-compose.rootless.yml. COMPOSE_FILE applies to
 # every Compose call, so --down uses the same files as the run which brought the stack up.
@@ -138,7 +141,7 @@ while [ $# -gt 0 ]; do
 		--reset-env)      RESET_ENV=1; shift;;
 		--host|--slot)    shift 2;;   # read by e2e_remote above
 		--host=*|--slot=*) shift;;
-		-h|--help)        sed -n '2,36p' "${SELF_PATH}" | sed 's/^# \{0,1\}//'; exit 0;;
+		-h|--help)        sed -n '2,37p' "${SELF_PATH}" | sed 's/^# \{0,1\}//'; exit 0;;
 		--)               shift; while [ $# -gt 0 ]; do PHPUNIT_ARGS+=("$1"); shift; done;;
 		*)                die "Unknown option: $1 (use --help)";;
 	esac
@@ -329,9 +332,22 @@ check_php_compatibility() {
 # ---------------------------------------------------------------------------
 acquire_wordpress() {
 	log "Acquiring WordPress ${WP_VERSION}"
-	[ -f "${GETCMS}" ] || die "${GETCMS} not found. Check out akeeba/buildfiles next to this repository and run composer install there."
-	php "${GETCMS}" download "${WP_VERSION}" "${WWW_DIR}" --cms=wordpress >/dev/null \
-		|| die "Could not download and extract WordPress ${WP_VERSION} with getcms."
+
+	local library="${BUILDFILES_DIR}/docker/e2e/wordpress/acquire.sh"
+	[ -f "${library}" ] || die "${library} not found. Update the akeeba/buildfiles checkout next to this repository."
+	. "${library}"
+	wordpress_acquire "${WP_VERSION}" "${INBOX_DIR}"
+
+	# The package holds everything in a wordpress/ directory; the web root needs what is inside it. Unpack elsewhere
+	# and copy, so that the web root keeps its own permissions.
+	local unpacked
+	unpacked="$(mktemp -d "${TMPDIR:-/tmp}/panopticon-e2e-wp.XXXXXX")"
+	if ! unzip -q "${WP_ZIP}" -d "${unpacked}" || ! cp -R "${unpacked}/wordpress/." "${WWW_DIR}/"; then
+		rm -rf "${unpacked}"
+		die "Could not unpack ${WP_ZIP}. If the file is damaged, delete it and run again."
+	fi
+	rm -rf "${unpacked}"
+
 	read_wordpress_version
 	ok "WordPress ${WP_RESOLVED} extracted (requires PHP ${WP_PHP_MINIMUM})"
 }
