@@ -11,7 +11,7 @@ Plugin URI: https://github.com/getpanopticon/panopticon-connector-wordpress
 Description: Use your WordPress site with Akeeba Panopticon
 Text Domain: panopticon
 Domain Path: /languages
-Version: 1.2.1
+Version: 1.2.2
 Panopticon API: 100
 Requires PHP: 7.2
 Requires at least: 5.0

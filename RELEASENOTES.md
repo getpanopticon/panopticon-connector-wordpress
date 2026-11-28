@@ -8,9 +8,9 @@ This is the connector plugin for [Akeeba Panopticon](https://github.com/getpanop
 
 ## 🔎 Release highlights
 
-* 🛡️ Core File Integrity Check. Panopticon can now verify your WordPress core files against the official checksums. By default the checksums come from WordPress.org; you can point the connector to a different source URL in Panopticon if you mirror them. You must update the connector to 1.2.1 on your sites for this feature to work.
-* 🌍 Translations. The connector now uses GNU GetText, and includes machine-translated language packs.
-* 🐞 Two important fixes. Installing several plugin/theme updates in one batch used to install only the first one (#8). The Akeeba Backup integration always got an empty secret word, which broke it for WordPress sites (#9). If you use either feature, update the connector.
+* 🐞 Plugins are no longer left deactivated after an update. Updating some plugins through Panopticon installed the new version but left it deactivated, and Panopticon reported an HTTP 500 error. This affected plugins whose activation code creates database tables, such as FluentSMTP and JetSmartFilters (#12), or loads its own files again, such as WP Rocket and JetMenu (#14). The connector now updates plugins the same way WordPress' own "Update Now" button and WP-CLI do, so it never deactivates or re-activates them. If a plugin update through Panopticon failed with an HTTP 500 error in the past, check that the plugin is still active on that site.
+* 🐞 WordPress Multisite. Panopticon could not connect to Multisite sites at all, because the connector rejected the API token on every request (#15).
+* 🐞 Failed updates are reported. A plugin or theme update which could not write to the filesystem used to be reported as successful.
 
 ## 🖥️ System Requirements
 
@@ -46,11 +46,14 @@ Please note that using these rules will prevent [WP-CLI](https://wp-cli.org/) fr
 
 ## 📋 CHANGELOG
 
-* ✨ Core File Integrity Check support [getpanopticon/panopticon#979]
-* ✨ Custom base URL for the Core File Integrity checksums source [getpanopticon/panopticon#981]
-* ✨ GNU GetText translation support and machine-translated language packs [#7]
-* 🐞 Only the first plugin or theme update in a batch was installed; the rest failed [#8]
-* 🐞 Akeeba Backup integration always received an empty secret word [#9]
+* 🐞 Remote plugin/theme installation failed with "unknown_type" or a fatal error [#10]
+* 🐞 Updating a plugin whose activation hook creates database tables failed and left it deactivated [#12]
+* 🐞 Panopticon could not connect to WordPress Multisite sites: the API token was always rejected [#15]
+* 🐞 Updating a plugin whose activation hook loads files with require failed and left it deactivated [#14]
+* 🐞 Updating a network-activated plugin on Multisite left it active on a single site only [#14]
+* 🐞 Plugin and theme update replies could have stray HTML before the JSON data [#12]
+* 🐞 A plugin update which could not write to the filesystem was reported as successful [#14]
+* 🐞 A theme update which could not write to the filesystem was reported as successful
 
 Legend:
 * 🚨 Security update
