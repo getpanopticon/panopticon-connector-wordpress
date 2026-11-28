@@ -290,8 +290,8 @@ class PanopticonPlugin
 	/**
 	 * Authorize an API user.
 	 *
-	 * If the provided token matches the configured one we log in the first Super Admin (multisite), or Administrator
-	 * user we can find.
+	 * If the provided token matches the configured one we log in the Super Admin (multisite), or Administrator user with
+	 * the lowest ID. If there is no such user, nobody is logged in.
 	 *
 	 * @param   mixed  $user
 	 *
@@ -305,15 +305,60 @@ class PanopticonPlugin
 			return $user;
 		}
 
+		$apiUser = is_multisite() ? $this->getFirstSuperAdmin() : $this->getFirstAdministrator();
+
+		return $apiUser ?: $user;
+	}
+
+	/**
+	 * Get the Super Admin with the lowest user ID on a multisite network.
+	 *
+	 * Super Admin is not a role. The network's Super Admins are the logins listed in the site_admins network option,
+	 * and they need not be members of the site the request is for, so get_users() can't find them.
+	 *
+	 * @return  WP_User|null
+	 * @since   1.2.2
+	 */
+	private function getFirstSuperAdmin()
+	{
+		$firstUser = null;
+
+		foreach (get_super_admins() as $login)
+		{
+			$candidate = get_user_by('login', $login);
+
+			// The option can still list the login of a deleted user.
+			if (!$candidate)
+			{
+				continue;
+			}
+
+			if ($firstUser === null || $candidate->ID < $firstUser->ID)
+			{
+				$firstUser = $candidate;
+			}
+		}
+
+		return $firstUser;
+	}
+
+	/**
+	 * Get the Administrator with the lowest user ID on a single site.
+	 *
+	 * @return  WP_User|null
+	 * @since   1.2.2
+	 */
+	private function getFirstAdministrator()
+	{
 		$users = get_users(
 			[
-				'role'    => is_multisite() ? 'Super Admin' : 'Administrator',
+				'role'    => 'administrator',
 				'orderby' => 'ID',
 				'number'  => 1,
 			]
 		);
 
-		return $users[0];
+		return $users[0] ?? null;
 	}
 
 	/**
