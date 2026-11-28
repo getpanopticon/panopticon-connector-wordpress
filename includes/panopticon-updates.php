@@ -145,58 +145,15 @@ class Panopticon_Updates extends WP_REST_Controller
 		 * leaving the plugin deactivated. It would also lose the network activation of a plugin on Multisite. See GitHub
 		 * issue #14.
 		 */
-		$skin    = new WP_Ajax_Upgrader_Skin();
-		$obLevel = ob_get_level();
+		$skin  = new WP_Ajax_Upgrader_Skin();
+		$error = $this->installUpdate(
+			new Plugin_Upgrader($skin), $skin, $plugin, 'rest_plugin_update_failed',
+			__('Could not install the plugin update.', 'panopticon')
+		);
 
-		ob_start();
-
-		try
+		if ($error !== null)
 		{
-			$upgrader = new Plugin_Upgrader($skin);
-			$results  = $upgrader->bulk_upgrade([$plugin]);
-		}
-		finally
-		{
-			/**
-			 * Close every output buffer opened since. Each error the upgrader reports opens one more, which WordPress
-			 * never closes: WP_Upgrader_Skin::error() calls header() when $done_header is false, and the header() of
-			 * Automatic_Upgrader_Skin starts an output buffer without setting it.
-			 */
-			while (ob_get_level() > $obLevel)
-			{
-				ob_end_clean();
-			}
-		}
-
-		// False when WordPress could not connect to the filesystem.
-		$result = is_array($results) && isset($results[$plugin]) ? $results[$plugin] : null;
-
-		if (is_wp_error($result))
-		{
-			return $result;
-		}
-
-		if (is_wp_error($skin->result))
-		{
-			return $skin->result;
-		}
-
-		if ($skin->get_errors()->get_error_code())
-		{
-			return $skin->get_errors();
-		}
-
-		// True means WordPress found no update for this plugin.
-		if ($result === true)
-		{
-			return new WP_Error('no_such_update', __('There is no such update.', 'panopticon'), ['status' => 409]);
-		}
-
-		if (!is_array($result) || empty($result['destination_name']))
-		{
-			return new WP_Error(
-				'rest_plugin_update_failed', __('Could not install the plugin update.', 'panopticon'), ['status' => 500]
-			);
+			return $error;
 		}
 
 		$messages = $skin->get_upgrade_messages();
@@ -272,17 +229,16 @@ class Panopticon_Updates extends WP_REST_Controller
 			return new WP_Error('no_such_update', __('There is no such update.', 'panopticon'), ['status' => 409]);
 		}
 
-		// Install the theme update
-		$skin = new Automatic_Upgrader_Skin();
+		// Install the theme update the way WordPress' own "Update Now" does (wp_ajax_update_theme()).
+		$skin  = new WP_Ajax_Upgrader_Skin();
+		$error = $this->installUpdate(
+			new Theme_Upgrader($skin), $skin, $theme, 'rest_theme_update_failed',
+			__('Could not install the theme update.', 'panopticon')
+		);
 
-		@ob_start();
-		$upgrader = new Theme_Upgrader($skin);
-		$result   = $upgrader->upgrade($theme);
-		@ob_end_clean();
-
-		if (is_wp_error($result))
+		if ($error !== null)
 		{
-			return $result;
+			return $error;
 		}
 
 		$messages = $skin->get_upgrade_messages();
@@ -327,6 +283,74 @@ class Panopticon_Updates extends WP_REST_Controller
 		}
 
 		return current_user_can('update_themes');
+	}
+
+	/**
+	 * Installs the update of one plugin or theme with the upgrader's bulk_upgrade(), like WordPress' own "Update Now"
+	 * does (wp_ajax_update_plugin(), wp_ajax_update_theme()), and checks the result the same way.
+	 *
+	 * @param   Plugin_Upgrader|Theme_Upgrader  $upgrader      The upgrader, using $skin
+	 * @param   WP_Ajax_Upgrader_Skin           $skin          The upgrader's skin
+	 * @param   string                          $extension     The plugin (e.g. foo/foo.php) or theme (stylesheet)
+	 * @param   string                          $errorCode     Error code when the update failed without saying why
+	 * @param   string                          $errorMessage  Error message when the update failed without saying why
+	 *
+	 * @return  WP_Error|null  Null when the update was installed
+	 * @since   1.2.2
+	 */
+	private function installUpdate($upgrader, WP_Ajax_Upgrader_Skin $skin, $extension, $errorCode, $errorMessage)
+	{
+		$obLevel = ob_get_level();
+
+		ob_start();
+
+		try
+		{
+			$results = $upgrader->bulk_upgrade([$extension]);
+		}
+		finally
+		{
+			/**
+			 * Close every output buffer opened since. Each error the upgrader reports opens one more, which WordPress
+			 * never closes: WP_Upgrader_Skin::error() calls header() when $done_header is false, and the header() of
+			 * Automatic_Upgrader_Skin starts an output buffer without setting it.
+			 */
+			while (ob_get_level() > $obLevel)
+			{
+				ob_end_clean();
+			}
+		}
+
+		// $results is false when WordPress could not connect to the filesystem.
+		$result = is_array($results) && isset($results[$extension]) ? $results[$extension] : null;
+
+		if (is_wp_error($result))
+		{
+			return $result;
+		}
+
+		if (is_wp_error($skin->result))
+		{
+			return $skin->result;
+		}
+
+		if ($skin->get_errors()->get_error_code())
+		{
+			return $skin->get_errors();
+		}
+
+		// True means WordPress found no update to install.
+		if ($result === true)
+		{
+			return new WP_Error('no_such_update', __('There is no such update.', 'panopticon'), ['status' => 409]);
+		}
+
+		if (!is_array($result) || empty($result['destination_name']))
+		{
+			return new WP_Error($errorCode, $errorMessage, ['status' => 500]);
+		}
+
+		return null;
 	}
 
 	/**

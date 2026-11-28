@@ -7,6 +7,7 @@ Panopticon Connector for WordPress 1.2.2
 # [MEDIUM] Updating a network-activated plugin on Multisite left it active on a single site only [#14]
 # [LOW] Plugin and theme update replies could have stray HTML before the JSON data [#12]
 # [LOW] A plugin update which could not write to the filesystem was reported as successful [#14]
+# [LOW] A theme update which could not write to the filesystem was reported as successful
 
 Panopticon Connector for WordPress 1.2.1
 ================================================================================

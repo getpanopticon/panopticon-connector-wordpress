@@ -13,7 +13,8 @@ use PHPUnit\Framework\TestCase;
  * Tests for updating plugins and themes.
  *
  * Updating must coexist with WordPress' own show_message() (GitHub issue #12). Updating a plugin must leave its
- * activation alone, like WordPress' own "Update Now" does, and report every way the update can fail (GitHub issue #14).
+ * activation alone, like WordPress' own "Update Now" does (GitHub issue #14). Plugin and theme updates must report
+ * every way the update can fail.
  *
  * Each test runs in its own process. The tests declare WordPress functions and load WordPress' real
  * wp-admin/includes/misc.php, neither of which can be undone. On the code with the bug, the tests that load misc.php
@@ -82,6 +83,33 @@ class UpdatesShowMessageTest extends TestCase
 		$GLOBALS['panopticon_test_upgrade_outcome'] = 'up_to_date';
 
 		$error = $this->failedPluginUpdate();
+
+		$this->assertSame('no_such_update', $error->get_error_code());
+	}
+
+	public function testThemeUpdateReportsFilesystemFailure()
+	{
+		$GLOBALS['panopticon_test_upgrade_outcome'] = 'fs_failure';
+
+		$error = $this->failedThemeUpdate();
+
+		$this->assertSame('rest_theme_update_failed', $error->get_error_code());
+	}
+
+	public function testThemeUpdateReportsInvalidPackage()
+	{
+		$GLOBALS['panopticon_test_upgrade_outcome'] = 'package_error';
+
+		$error = $this->failedThemeUpdate();
+
+		$this->assertSame('incompatible_archive_no_plugins', $error->get_error_code());
+	}
+
+	public function testThemeUpdateReportsNoUpdate()
+	{
+		$GLOBALS['panopticon_test_upgrade_outcome'] = 'up_to_date';
+
+		$error = $this->failedThemeUpdate();
 
 		$this->assertSame('no_such_update', $error->get_error_code());
 	}
@@ -158,5 +186,16 @@ class UpdatesShowMessageTest extends TestCase
 		$this->assertInstanceOf(WP_REST_Response::class, $response);
 
 		return $response->get_data();
+	}
+
+	private function failedThemeUpdate(): WP_Error
+	{
+		$response = (new Panopticon_Updates())->updateTheme(
+			new WP_REST_Request(['theme' => PANOPTICON_TEST_THEME])
+		);
+
+		$this->assertInstanceOf(WP_Error::class, $response, 'The failed theme update was reported as a success.');
+
+		return $response;
 	}
 }
