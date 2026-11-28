@@ -138,3 +138,6 @@ tests/integration/docker/run.sh --package=/tmp/prefix/panopticon-prefix.zip --fi
 `PluginUpdateTest` then fails for the plugin whose activation hook loads `upgrade.php`, and `ThemeUpdateTest` for the
 site with a plugin which loads `upgrade.php` after every update. Both get HTTP 500 and the
 `Cannot redeclare function show_message()` fatal error from the issue.
+
+Likewise, a package from before the fix for GitHub issue #14 fails `PluginUpdateTest` for the plugin whose activation
+hook loads a file with `require` instead of `require_once`, with HTTP 500 and a `Cannot redeclare function` fatal error.

@@ -20,6 +20,7 @@ require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader-skin.php';
 require_once ABSPATH . 'wp-admin/includes/class-plugin-upgrader-skin.php';
 require_once ABSPATH . 'wp-admin/includes/class-theme-upgrader-skin.php';
 require_once ABSPATH . 'wp-admin/includes/class-automatic-upgrader-skin.php';
+require_once ABSPATH . 'wp-admin/includes/class-wp-ajax-upgrader-skin.php';
 
 const PANOPTICON_TEST_PLUGIN = 'foo/foo.php';
 const PANOPTICON_TEST_THEME  = 'bar';
@@ -27,6 +28,12 @@ const PANOPTICON_TEST_THEME  = 'bar';
 /**
  * Upgrader double. Calls the skin like WordPress' upgraders do, then runs the test's callback, if any, which stands in
  * for whatever third-party code runs during the update.
+ *
+ * $GLOBALS['panopticon_test_upgrade_outcome'] picks what WordPress' upgrader would do:
+ * - "success" (default): the update is installed.
+ * - "fs_failure": WordPress cannot connect to the filesystem. Nothing is installed, and no error is reported.
+ * - "package_error": the package is invalid. The skin and the result report the error.
+ * - "up_to_date": WordPress has no update for the extension.
  */
 abstract class Panopticon_Test_Upgrader
 {
@@ -40,18 +47,101 @@ abstract class Panopticon_Test_Upgrader
 		$this->skin->set_upgrader($this);
 	}
 
+	/**
+	 * Like WordPress' upgrade(), which returns true on success, and false or a WP_Error otherwise.
+	 */
 	public function upgrade($extension)
 	{
 		$this->skin->header();
+
+		switch (self::outcome())
+		{
+			case 'fs_failure':
+				$this->skin->footer();
+
+				return false;
+
+			case 'up_to_date':
+				$this->skin->error('up_to_date');
+				$this->skin->footer();
+
+				return false;
+
+			case 'package_error':
+				$result = self::packageError();
+				$this->skin->error($result);
+				$this->skin->footer();
+
+				return $result;
+		}
+
 		$this->skin->feedback('Update installed successfully.');
 		$this->skin->footer();
+		$this->runCallback();
 
+		return true;
+	}
+
+	/**
+	 * Like WordPress' bulk_upgrade(): false when it could not connect to the filesystem, otherwise an array keyed by
+	 * extension with WP_Upgrader::run()'s result, or true when there was no update for it.
+	 */
+	public function bulk_upgrade($extensions)
+	{
+		$this->skin->header();
+
+		if (self::outcome() === 'fs_failure')
+		{
+			$this->skin->footer();
+
+			return false;
+		}
+
+		$results = [];
+
+		foreach ($extensions as $extension)
+		{
+			switch (self::outcome())
+			{
+				case 'up_to_date':
+					$this->skin->feedback('up_to_date');
+					$results[$extension] = true;
+					break;
+
+				case 'package_error':
+					$results[$extension] = self::packageError();
+					$this->skin->error($results[$extension]);
+					break;
+
+				default:
+					$this->skin->feedback('Update installed successfully.');
+					$results[$extension] = ['destination_name' => dirname($extension)];
+					break;
+			}
+		}
+
+		$this->runCallback();
+		$this->skin->footer();
+
+		return $results;
+	}
+
+	private static function outcome()
+	{
+		return $GLOBALS['panopticon_test_upgrade_outcome'] ?? 'success';
+	}
+
+	private static function packageError()
+	{
+		return new WP_Error('incompatible_archive_no_plugins', 'The package could not be installed.');
+	}
+
+	private function runCallback()
+	{
 		if (is_callable($GLOBALS['panopticon_test_during_upgrade'] ?? null))
 		{
 			call_user_func($GLOBALS['panopticon_test_during_upgrade']);
 		}
-
-		return true;
 	}
 }
 

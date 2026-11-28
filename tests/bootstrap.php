@@ -26,20 +26,78 @@ class WP_REST_Controller
 {
 }
 
+/**
+ * The part of WordPress' WP_Error the Connector and WordPress' real upgrader skins use.
+ */
 class WP_Error
 {
 	public $code;
 	public $message;
 
+	/** @var array<string,string[]> */
+	private $errors = [];
+
+	/** @var array<string,mixed> */
+	private $data = [];
+
 	public function __construct($code = '', $message = '', $data = '')
 	{
 		$this->code    = $code;
 		$this->message = $message;
+
+		if (!empty($code))
+		{
+			$this->add($code, $message, $data);
+		}
 	}
 
-	public function get_error_message()
+	public function add($code, $message, $data = '')
 	{
-		return $this->message;
+		$this->errors[$code][] = $message;
+
+		if (!empty($data))
+		{
+			$this->data[$code] = $data;
+		}
+	}
+
+	public function has_errors()
+	{
+		return !empty($this->errors);
+	}
+
+	public function get_error_codes()
+	{
+		return array_keys($this->errors);
+	}
+
+	public function get_error_messages($code = '')
+	{
+		if ($code)
+		{
+			return $this->errors[$code] ?? [];
+		}
+
+		return $this->errors ? array_merge(...array_values($this->errors)) : [];
+	}
+
+	public function get_error_code()
+	{
+		return $this->get_error_codes()[0] ?? '';
+	}
+
+	public function get_error_message($code = '')
+	{
+		$code = $code ?: $this->get_error_code();
+
+		return $this->errors[$code][0] ?? '';
+	}
+
+	public function get_error_data($code = '')
+	{
+		$code = $code ?: $this->get_error_code();
+
+		return $this->data[$code] ?? null;
 	}
 }
 

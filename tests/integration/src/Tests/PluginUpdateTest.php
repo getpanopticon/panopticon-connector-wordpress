@@ -13,9 +13,11 @@ use PHPUnit\Framework\Attributes\DataProvider;
 /**
  * Updating an active plugin through the Connector leaves it updated AND active.
  *
- * WordPress deactivates a plugin before updating it, and the Connector re-activates it in the same request, which runs
- * the plugin's activation hook. See GitHub issue #12: an activation hook which loads wp-admin/includes/upgrade.php
- * (the usual way to get dbDelta) killed the request with a fatal error, leaving the plugin deactivated.
+ * The Connector used to update plugins with Plugin_Upgrader::upgrade(), which deactivates the plugin first, then
+ * re-activated it in the same request, running the activation hook of the old version, which was already loaded. An
+ * activation hook which loads wp-admin/includes/upgrade.php (the usual way to get dbDelta) killed the request with a
+ * fatal error (GitHub issue #12), and so did one which loads a file with require instead of require_once (GitHub issue
+ * #14). Either way, the plugin was left deactivated.
  */
 class PluginUpdateTest extends AbstractUpdateTestCase
 {
@@ -24,6 +26,7 @@ class PluginUpdateTest extends AbstractUpdateTestCase
 		return [
 			'activation hook writes an option'        => ['e2e-plain-probe'],
 			'activation hook loads upgrade.php (#12)' => ['e2e-dbdelta-probe'],
+			'activation hook requires a file (#14)'   => ['e2e-require-probe'],
 		];
 	}
 

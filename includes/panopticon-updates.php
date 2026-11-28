@@ -135,44 +135,71 @@ class Panopticon_Updates extends WP_REST_Controller
 			return new WP_Error('no_such_update', __('There is no such update.', 'panopticon'), ['status' => 409]);
 		}
 
-		// Is the plugin activated?
-		$isPluginActivated = is_plugin_active($plugin);
-		$isNetworkActivated = is_multisite() && is_network_only_plugin($plugin)
-		                      && is_plugin_active_for_network($plugin);
+		/**
+		 * Install the plugin update the way WordPress' own "Update Now" does (wp_ajax_update_plugin()), and WP-CLI.
+		 *
+		 * Plugin_Upgrader::bulk_upgrade() replaces the files under maintenance mode, and leaves the plugin's activation
+		 * state alone. Plugin_Upgrader::upgrade() instead deactivates the plugin first, expecting a separate request to
+		 * re-activate it. Re-activating it in this request would run the activation hook of the old version, which is
+		 * already loaded, so any hook that requires a file or declares something unguarded dies with a fatal error,
+		 * leaving the plugin deactivated. It would also lose the network activation of a plugin on Multisite. See GitHub
+		 * issue #14.
+		 */
+		$skin    = new WP_Ajax_Upgrader_Skin();
+		$obLevel = ob_get_level();
 
-		// Install the plugin update
-		$skin = new Automatic_Upgrader_Skin();
+		ob_start();
 
-		@ob_start();
-		$upgrader = new Plugin_Upgrader($skin);
-		$result   = $upgrader->upgrade($plugin);
-		@ob_end_clean();
+		try
+		{
+			$upgrader = new Plugin_Upgrader($skin);
+			$results  = $upgrader->bulk_upgrade([$plugin]);
+		}
+		finally
+		{
+			/**
+			 * Close every output buffer opened since. Each error the upgrader reports opens one more, which WordPress
+			 * never closes: WP_Upgrader_Skin::error() calls header() when $done_header is false, and the header() of
+			 * Automatic_Upgrader_Skin starts an output buffer without setting it.
+			 */
+			while (ob_get_level() > $obLevel)
+			{
+				ob_end_clean();
+			}
+		}
+
+		// False when WordPress could not connect to the filesystem.
+		$result = is_array($results) && isset($results[$plugin]) ? $results[$plugin] : null;
 
 		if (is_wp_error($result))
 		{
 			return $result;
 		}
 
-		$messages = $skin->get_upgrade_messages();
-
-		/**
-		 * Re-activate the plugin.
-		 *
-		 * WordPress deactivates the plugin before updating it, unless running under WP-Cron. In wp-admin it is then
-		 * re-activated in a separate request. A failure here leaves the updated plugin deactivated, so report it.
-		 */
-		if ($isPluginActivated || $isNetworkActivated)
+		if (is_wp_error($skin->result))
 		{
-			$activateResult = activate_plugin($plugin, '', $isNetworkActivated, false);
-
-			if (is_wp_error($activateResult))
-			{
-				$messages[] = sprintf(
-					__('The plugin was installed but activation failed: %s', 'panopticon'),
-					$activateResult->get_error_message()
-				);
-			}
+			return $skin->result;
 		}
+
+		if ($skin->get_errors()->get_error_code())
+		{
+			return $skin->get_errors();
+		}
+
+		// True means WordPress found no update for this plugin.
+		if ($result === true)
+		{
+			return new WP_Error('no_such_update', __('There is no such update.', 'panopticon'), ['status' => 409]);
+		}
+
+		if (!is_array($result) || empty($result['destination_name']))
+		{
+			return new WP_Error(
+				'rest_plugin_update_failed', __('Could not install the plugin update.', 'panopticon'), ['status' => 500]
+			);
+		}
+
+		$messages = $skin->get_upgrade_messages();
 
 		/**
 		 * Rebuild the update information WordPress just threw away.
@@ -303,13 +330,14 @@ class Panopticon_Updates extends WP_REST_Controller
 	}
 
 	/**
-	 * Loads the upgrader skin used for plugin and theme updates.
+	 * Loads the upgrader skins used for plugin and theme updates.
 	 *
-	 * Automatic_Upgrader_Skin collects the upgrader's messages instead of printing them with show_message(). WordPress'
-	 * show_message() writes HTML, then flushes all output buffers, which breaks the JSON reply. Do NOT declare a
-	 * show_message() replacement either: wp-admin/includes/misc.php declares it unconditionally, and any code which
-	 * loads that file later in the request (e.g. a plugin's activation hook loading wp-admin/includes/upgrade.php to
-	 * use dbDelta) would die with a "Cannot redeclare function show_message()" fatal error. See GitHub issue #12.
+	 * Automatic_Upgrader_Skin, and WP_Ajax_Upgrader_Skin which extends it, collect the upgrader's messages instead of
+	 * printing them with show_message(). WordPress' show_message() writes HTML, then flushes all output buffers, which
+	 * breaks the JSON reply. Do NOT declare a show_message() replacement either: wp-admin/includes/misc.php declares it
+	 * unconditionally, and any code which loads that file later in the request (e.g. a plugin's activation hook loading
+	 * wp-admin/includes/upgrade.php to use dbDelta) would die with a "Cannot redeclare function show_message()" fatal
+	 * error. See GitHub issue #12.
 	 *
 	 * @return  void
 	 * @since   1.2.2
@@ -324,6 +352,11 @@ class Panopticon_Updates extends WP_REST_Controller
 		if (!class_exists(Automatic_Upgrader_Skin::class))
 		{
 			require_once ABSPATH . 'wp-admin/includes/class-automatic-upgrader-skin.php';
+		}
+
+		if (!class_exists(WP_Ajax_Upgrader_Skin::class))
+		{
+			require_once ABSPATH . 'wp-admin/includes/class-wp-ajax-upgrader-skin.php';
 		}
 	}
 
